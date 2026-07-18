@@ -9,16 +9,16 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install build-essential only where it's needed to compile FAISS / C-extensions
+# Install build-essential to compile FAISS / C-extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
-# Create a wheels directory to safely pass compiled assets to the next stage
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
+# Build wheels for BOTH torch and requirements into the wheels directory
+RUN pip wheel --no-cache-dir --wheel-dir /app/wheels --index-url https://download.pytorch.org/whl/cpu torch && \
+    pip wheel --no-cache-dir --wheel-dir /app/wheels --find-links=/app/wheels -r requirements.txt
 
 # ==========================================================
 # Stage 2: Final Runtime (Lightweight execution layer)
@@ -31,13 +31,12 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Bring over the pre-compiled wheels from the builder stage
+# Bring over all pre-compiled wheels from the builder stage
 COPY --from=builder /app/wheels /app/wheels
 COPY requirements.txt .
 
-# Install the pre-compiled packages locally without needing build-essential
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir --no-index --find-links=/app/wheels -r requirements.txt && \
+# Install everything completely offline using the pre-built local wheels
+RUN pip install --no-cache-dir --no-index --find-links=/app/wheels torch -r requirements.txt && \
     rm -rf /app/wheels
 
 # Copy application code last to protect build cache layers
