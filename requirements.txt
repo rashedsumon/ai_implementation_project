@@ -4,6 +4,7 @@ peft
 torch
 datasets
 langchain-core
+langchain-community
 langchain-google-genai
 langgraph
 chromadb
