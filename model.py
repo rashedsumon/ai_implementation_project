@@ -30,30 +30,40 @@ class SupportAIModelPipeline:
             google_api_key=api_key,
             temperature=0.1
         )
+        # FIX: Updated to the robust, current generation text embedding model
         self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
+            model="models/text-embedding-004",
             google_api_key=api_key
         )
         self.vector_store_path = os.path.join(os.getcwd(), "chroma_db")
         self.vector_db = None
 
     def build_vector_store(self, processed_data: List[Dict[str, Any]]):
-        """Builds or connects to the local standalone Chroma DB instance."""
+        """Builds or connects to the local standalone Chroma DB instance using batch ingestion."""
         documents = [
             Document(page_content=item["text"], metadata=item["metadata"])
-            for item in processed_data[:300]  # Slice subset out for quick memory handling in cloud bounds
+            for item in processed_data[:100]  # Kept light to stay within safe memory and API limits
         ]
         
-        self.vector_db = Chroma.from_documents(
-            documents=documents,
-            embedding=self.embeddings,
-            persist_directory=self.vector_store_path
-        )
+        # FIX: Ingest in small batches to protect against Google GenAI rate limits or network dropouts
+        batch_size = 20
+        
+        # Initialize the Chroma store with the first batch
+        if documents:
+            self.vector_db = Chroma.from_documents(
+                documents=documents[:batch_size],
+                embedding=self.embeddings,
+                persist_directory=self.vector_store_path
+            )
+            
+            # Ingest remaining batches sequentially
+            for i in range(batch_size, len(documents), batch_size):
+                batch = documents[i:i + batch_size]
+                self.vector_db.add_documents(batch)
 
     def get_retriever_node(self, state: AgentState) -> Dict[str, Any]:
         """LangGraph node designed to run embedding matches against vector store."""
         if not self.vector_db:
-            # Fallback initialization if vector store wasn't initialized in session state
             self.vector_db = Chroma(persist_directory=self.vector_store_path, embedding_function=self.embeddings)
             
         query = state["ticket_text"]
@@ -70,22 +80,18 @@ class SupportAIModelPipeline:
             f"--- Customer Ticket ---\n{state['ticket_text']}"
         )
         
-        # Enforce structured output parsing matching Pydantic class structural fields
         structured_llm = self.llm.with_structured_output(TicketAnalysis)
         response = structured_llm.invoke(system_prompt)
         
-        # Format response data directly into dictionary state storage
         return {"structured_output": response.model_dump()}
 
     def compile_graph(self):
         """Assembles LangGraph workflow sequence framework."""
         workflow = StateGraph(AgentState)
         
-        # Declare explicit application nodes
         workflow.add_node("retrieve_knowledge", self.get_retriever_node)
         workflow.add_node("analyze_and_draft", self.get_llm_processor_node)
         
-        # Link explicit chronological dependency flow paths
         workflow.set_entry_point("retrieve_knowledge")
         workflow.add_edge("retrieve_knowledge", "analyze_and_draft")
         workflow.add_edge("analyze_and_draft", END)
