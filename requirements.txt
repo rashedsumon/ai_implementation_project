@@ -1,0 +1,11 @@
+streamlit
+transformers
+peft
+torch
+datasets
+langchain-core
+langchain-google-genai
+langgraph
+chromadb
+sentence-transformers
+pydantic
