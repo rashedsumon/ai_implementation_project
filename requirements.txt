@@ -5,7 +5,7 @@ torch
 datasets
 langchain-core
 langchain-community
-langchain-google-genai
+google-genai
 langgraph
 faiss-cpu
 sentence-transformers
