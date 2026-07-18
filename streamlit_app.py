@@ -1,26 +1,27 @@
 import streamlit as st
 import os
 
-# Import pipeline components
-from data_loader import HelpdeskDataLoader
-from model import SupportAIModelPipeline
-
-st.set_page_colortheme = "dark"
+st.set_page_config(layout="wide")
 st.title("Enterprise AI Ticket Triage & Auto-Responder")
 st.caption("Powered by LangGraph, Hugging Face Data Engine, ChromaDB, and Gemini")
 
-# 1. Verification of Cloud Deployment Secret Keys
+# FIX: Map secret key variables directly into the OS environment before importing or calling models
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
+    os.environ["GOOGLE_API_KEY"] = api_key
 else:
     st.error("Missing Gemini API Key! Please configure the GEMINI_API_KEY parameter in your Streamlit Cloud Workspace Secrets panel.")
     st.stop()
+
+# Import pipeline components after environment variable declaration
+from data_loader import HelpdeskDataLoader
+from model import SupportAIModelPipeline
 
 # Initialize state objects in application engine memory spaces
 if "pipeline" not in st.session_state:
     with st.spinner("Initializing AI Orchestration Stacks (Downloading Core Datasets)..."):
         # Setup pipeline models
-        pipeline = SupportAIModelPipeline(api_key=api_key)
+        pipeline = SupportAIModelPipeline()
         
         # Pull data via Hugging Face loader engine logic
         loader = HelpdeskDataLoader()
@@ -33,7 +34,7 @@ if "pipeline" not in st.session_state:
         st.session_state.graph = pipeline.compile_graph()
     st.success("AI Infrastructure successfully mounted!")
 
-# 2. User Input UI Area
+# User Input UI Area
 st.subheader("Input Customer Ticket Profile")
 default_email = (
     "I was charged twice for my subscription renewal this morning ($49.99 x 2). "
@@ -42,7 +43,7 @@ default_email = (
 )
 user_ticket = st.text_area("Paste Incoming Support Text Email:", value=default_email, height=150)
 
-# 3. Execution Action Trigger
+# Execution Action Trigger
 if st.button("Run Automated Triage Pipeline", type="primary"):
     initial_graph_input = {
         "ticket_text": user_ticket,
@@ -55,7 +56,7 @@ if st.button("Run Automated Triage Pipeline", type="primary"):
         output_state = st.session_state.graph.invoke(initial_graph_input)
         structured_results = output_state.get("structured_output", {})
 
-    # 4. Model Output Visualization Interface
+# Model Output Visualization Interface
     st.subheader("Automated Operational Diagnostics (Model Output)")
     
     col1, col2, col3 = st.columns(3)

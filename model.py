@@ -23,17 +23,16 @@ class AgentState(TypedDict):
     structured_output: Dict[str, Any]
 
 class SupportAIModelPipeline:
-    def __init__(self, api_key: str):
-        # Instantiate Gemini via LangChain using the validated explicit API key configuration
+    def __init__(self):
+        # FIX: Remove explicit key arg; automatically uses the initialized global OS environment flag
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
-            google_api_key=api_key,
             temperature=0.1
         )
-        # FIX: Updated to the robust, current generation text embedding model
+        # FIX: Added task_type tuning configuration to align embedding calculations with database queries
         self.embeddings = GoogleGenerativeAIEmbeddings(
             model="models/text-embedding-004",
-            google_api_key=api_key
+            task_type="retrieval_document"
         )
         self.vector_store_path = os.path.join(os.getcwd(), "chroma_db")
         self.vector_db = None
@@ -42,11 +41,10 @@ class SupportAIModelPipeline:
         """Builds or connects to the local standalone Chroma DB instance using batch ingestion."""
         documents = [
             Document(page_content=item["text"], metadata=item["metadata"])
-            for item in processed_data[:100]  # Kept light to stay within safe memory and API limits
+            for item in processed_data[:60]  # Light context indexing constraints suited for host instance runtimes
         ]
         
-        # FIX: Ingest in small batches to protect against Google GenAI rate limits or network dropouts
-        batch_size = 20
+        batch_size = 15
         
         # Initialize the Chroma store with the first batch
         if documents:
