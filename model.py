@@ -3,9 +3,10 @@ from typing import TypedDict, List, Dict, Any
 from pydantic import BaseModel, Field
 
 # LangChain and Graph requirements
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langgraph.graph import StateGraph, END
 
 # Pydantic schema for strict JSON evaluation structured output
@@ -30,22 +31,21 @@ class SupportAIModelPipeline:
             temperature=0.1
         )
         
-        # Initializing clean Google embeddings model
-        self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004"
+        # FIX: Swapped to a local Hugging Face embedding model. 
+        # This executes purely on the Streamlit server container, bypassing Google's async API bugs.
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2"
         )
         self.vector_db = None
 
     def build_vector_store(self, processed_data: List[Dict[str, Any]]):
-        """Builds an in-memory FAISS database instance safely within Streamlit threads."""
-        # Process a lightweight subset for immediate container execution
+        """Builds an in-memory FAISS database instance using local embeddings."""
         sample_size = min(50, len(processed_data))
         documents = [
             Document(page_content=item["text"], metadata=item["metadata"])
             for item in processed_data[:sample_size]
         ]
         
-        # FIX: Using FAISS bypasses the runtime thread-locking bugs common to Chroma on Streamlit Cloud
         if documents:
             self.vector_db = FAISS.from_documents(
                 documents=documents,
