@@ -7,6 +7,6 @@ langchain-core
 langchain-community
 langchain-google-genai
 langgraph
-chromadb
+faiss-cpu
 sentence-transformers
 pydantic
