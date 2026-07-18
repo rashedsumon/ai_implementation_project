@@ -17,8 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # Build wheels for BOTH torch and requirements into the wheels directory
+# Crucial: Added the CPU index-url to the requirements build step too
 RUN pip wheel --no-cache-dir --wheel-dir /app/wheels --index-url https://download.pytorch.org/whl/cpu torch && \
-    pip wheel --no-cache-dir --wheel-dir /app/wheels --find-links=/app/wheels -r requirements.txt
+    pip wheel --no-cache-dir --wheel-dir /app/wheels --index-url https://download.pytorch.org/whl/cpu --find-links=/app/wheels -r requirements.txt
 
 # ==========================================================
 # Stage 2: Final Runtime (Lightweight execution layer)
