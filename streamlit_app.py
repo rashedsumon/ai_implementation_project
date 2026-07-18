@@ -3,25 +3,24 @@ import os
 
 st.set_page_config(layout="wide")
 st.title("Enterprise AI Ticket Triage & Auto-Responder")
-st.caption("Powered by LangGraph, Hugging Face Data Engine, ChromaDB, and Gemini")
+st.caption("Powered by LangGraph, Hugging Face Data Engine, FAISS, and Gemini")
 
-# FIX: Map secret key variables directly into the OS environment before importing or calling models
+# Validate Cloud Deployment Secret Keys
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
-    os.environ["GOOGLE_API_KEY"] = api_key
 else:
     st.error("Missing Gemini API Key! Please configure the GEMINI_API_KEY parameter in your Streamlit Cloud Workspace Secrets panel.")
     st.stop()
 
-# Import pipeline components after environment variable declaration
+# Import pipeline components
 from data_loader import HelpdeskDataLoader
 from model import SupportAIModelPipeline
 
 # Initialize state objects in application engine memory spaces
 if "pipeline" not in st.session_state:
     with st.spinner("Initializing AI Orchestration Stacks (Downloading Core Datasets)..."):
-        # Setup pipeline models
-        pipeline = SupportAIModelPipeline()
+        # FIX: Pass the authenticated API key explicitly into the constructor instance
+        pipeline = SupportAIModelPipeline(api_key=api_key)
         
         # Pull data via Hugging Face loader engine logic
         loader = HelpdeskDataLoader()
@@ -56,7 +55,7 @@ if st.button("Run Automated Triage Pipeline", type="primary"):
         output_state = st.session_state.graph.invoke(initial_graph_input)
         structured_results = output_state.get("structured_output", {})
 
-# Model Output Visualization Interface
+    # Model Output Visualization Interface
     st.subheader("Automated Operational Diagnostics (Model Output)")
     
     col1, col2, col3 = st.columns(3)
