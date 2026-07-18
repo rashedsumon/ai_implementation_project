@@ -9,18 +9,16 @@ ENV PYTHONUNBUFFERED=1 \
 # Set the working directory inside the container
 WORKDIR /app
 
-# Install system dependencies required for FAISS compiling or sentence-transformers
+# Install native system build requirements for compiling FAISS and C-extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only requirements first to leverage Docker layer caching
 COPY requirements.txt .
 
-# Install dependencies 
-# Note: We explicitly install the CPU version of PyTorch first to keep the image slim
+# Pre-install the CPU-specific variant of PyTorch to minimize image footprint size
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
